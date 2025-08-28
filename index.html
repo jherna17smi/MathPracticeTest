@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Antonio's Math Practice App</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+
+  <style>
+    :root{
+      --brand-blue:#0d6efd;
+      --brand-red:#e43d30;
+      --lavender:#f2e6ff;
+      --correct:#1e7e34;
+      --incorrect:#c82333;
+    }
+    body { background:#f7f7fb; }
+
+    /* Blue + red top landing banner */
+    .hero {
+      background: linear-gradient(135deg, var(--brand-blue), var(--brand-red));
+      color:#fff;
+      padding: 48px 0 28px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15);
+    }
+    .hero h1 { font-weight: 800; letter-spacing:.2px; }
+    .hero p { opacity:.95; }
+
+    /* Explanation cards */
+    .prop-card .badge { background: rgba(255,255,255,.2); }
+
+    /* Quiz section */
+    .quiz-wrap{
+      background: var(--lavender);
+      border-radius: 16px;
+      box-shadow: 0 10px 24px rgba(86, 11, 173, .15);
+      padding: 20px;
+    }
+    .question-card{
+      background:#fff;
+      border: 1px solid #eee;
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .answers .btn{
+      text-align:left;
+      border-radius: 12px;
+      border:1px solid #e5e5e5;
+      background:#fafafa;
+    }
+    .answers .btn:hover{ background:#f1f7ff; }
+    .answers .btn.correct{
+      background:#d8f3dc !important;
+      border-color:#95d5b2 !important;
+      color:#0b5137 !important;
+    }
+    .answers .btn.incorrect{
+      background:#ffe0e0 !important;
+      border-color:#f1a7a7 !important;
+      color:#58151c !important;
+    }
+    .progress { height: 10px; }
+    .explain-list code{
+      background:#f8f9fa;
+      padding:.1rem .35rem;
+      border-radius:.35rem;
+    }
+
+    /* Full-screen fireworks canvas (hidden until perfect score) */
+    #fireworks {
+      position: fixed;
+      inset: 0;
+      display: none;             /* shown on perfect score */
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    footer {
+      color:#6c757d;
+      font-size: .95rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Banner -->
+  <header class="hero">
+    <div class="container">
+      <h1 class="display-5">Antonio’s Math Practice App</h1>
+      <p class="lead mb-0">Master the <strong>Commutative</strong> and <strong>Associative</strong> properties of multiplication with quick examples and a 10-question quiz.</p>
+    </div>
+  </header>
+
+  <!-- Explanations -->
+  <section class="py-4">
+    <div class="container">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card prop-card h-100">
+            <div class="card-body">
+              <h5 class="card-title">
+                Commutative Property
+                <span class="badge ms-2">order doesn’t matter</span>
+              </h5>
+              <p class="mb-2">For multiplication, changing the order of the factors doesn’t change the product.</p>
+              <ul class="mb-0">
+                <li><code>a × b = b × a</code></li>
+                <li>Example: <code>3 × 7 = 7 × 3 = 21</code></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card prop-card h-100">
+            <div class="card-body">
+              <h5 class="card-title">
+                Associative Property
+                <span class="badge ms-2">grouping doesn’t matter</span>
+              </h5>
+              <p class="mb-2">For multiplication, changing which factors are grouped doesn’t change the product.</p>
+              <ul class="mb-0">
+                <li><code>(a × b) × c = a × (b × c)</code></li>
+                <li>Example: <code>(2 × 5) × 3 = 2 × (5 × 3) = 30</code></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section class="pb-5">
+    <div class="container">
+      <div class="quiz-wrap">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div><span class="fw-semibold">Progress:</span></div>
+          <div class="small"><span id="counter">Question 1 of 10</span> • <strong id="scoreLabel">Score: 0</strong></div>
+        </div>
+        <div class="progress mb-3" role="progressbar" aria-label="Quiz Progress" aria-valuemin="0" aria-valuemax="100">
+          <div id="bar" class="progress-bar bg-primary" style="width: 0%"></div>
+        </div>
+
+        <div class="question-card mb-3">
+          <h5 id="qText" class="mb-3">Loading question…</h5>
+          <div id="answers" class="answers d-grid gap-2"></div>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button id="nextBtn" class="btn btn-primary" disabled>Next</button>
+          <button id="restartBtn" class="btn btn-outline-secondary d-none">Play Again</button>
+        </div>
+
+        <div id="result" class="mt-3"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Fireworks Canvas -->
+  <canvas id="fireworks"></canvas>
+
+  <footer class="py-4 text-center">
+    &copy; 2025 Jose A. Hernandez Soto. All rights reserved.
+  </footer>
+
+  <!-- Bootstrap JS (optional for buttons) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // =========================
+    // Question Bank (10 total)
+    // Each item: {question, choices[], correctIndex, explanation}
+    // =========================
+    const QUESTIONS = [
+      // Commutative
+      {
+        question: "By the Commutative Property, which equals 4 × 9?",
+        choices: ["9 × 4", "4 + 9", "9 − 4", "4 ÷ 9"],
+        correctIndex: 0,
+        explanation: "Commutative: a × b = b × a, so 4 × 9 = 9 × 4."
+      },
+      {
+        question: "Which expression is equal to 7 × 6 by commutativity?",
+        choices: ["7 + 6", "6 × 7", "7 − 6", "6 ÷ 7"],
+        correctIndex: 1,
+        explanation: "Swapping the order (7 × 6 → 6 × 7) keeps the product the same."
+      },
+      {
+        question: "Select the expression equal to 3 × 12 using the Commutative Property.",
+        choices: ["12 × 3", "3 + 12", "12 − 3", "3 ÷ 12"],
+        correctIndex: 0,
+        explanation: "3 × 12 = 12 × 3 by a × b = b × a."
+      },
+
+      // Associative (grouping)
+      {
+        question: "Fill the blank using Associative Property: (5 × __) × 7 = 5 × (3 × 7)",
+        choices: ["3", "2", "4", "8"],
+        correctIndex: 0,
+        explanation: "(a × b) × c = a × (b × c). Here a=5, b=3, c=7, so the blank is 3."
+      },
+      {
+        question: "Which grouping shows the Associative Property for 2, 4, and 9?",
+        choices: ["(2 × 4) × 9 = 2 × (4 × 9)", "(2 + 4) × 9 = 2 × (4 + 9)", "2 × (4 + 9) = (2 × 4) + 9", "(2 × 4) + 9 = 2 × (4 + 9)"],
+        correctIndex: 0,
+        explanation: "Associative for multiplication: (2×4)×9 = 2×(4×9)."
+      },
+      {
+        question: "Pick the value that makes this true: (8 × 2) × __ = 8 × (2 × 5)",
+        choices: ["5", "3", "4", "6"],
+        correctIndex: 0,
+        explanation: "Match c on both sides: (8×2)×c = 8×(2×5) → c = 5."
+      },
+      {
+        question: "Choose the correct completion: (__ × 11) × 3 = 7 × (11 × 3)",
+        choices: ["7", "6", "9", "10"],
+        correctIndex: 0,
+        explanation: "Match a on both sides: (a×11)×3 = 7×(11×3) → a = 7."
+      },
+
+      // Mixed check
+      {
+        question: "Which statement is always TRUE for the Commutative Property?",
+        choices: ["a × b = b × a", "a × (b × c) = (a × b) × c", "a + (b × c) = (a + b) × c", "a × b = a + b"],
+        correctIndex: 0,
+        explanation: "a × b = b × a is the definition of commutativity for multiplication."
+      },
+      {
+        question: "Which statement is always TRUE for the Associative Property?",
+        choices: ["(a × b) × c = a × (b × c)", "a × b = b × a", "a × (b + c) = a × b + c", "a − b = b − a"],
+        correctIndex: 0,
+        explanation: "(a × b) × c = a × (b × c) is the definition of associativity for multiplication."
+      },
+      {
+        question: "Use both properties: Which equals (3 × 5) × 2?",
+        choices: ["3 × (5 × 2)", "2 × 5 × 3", "5 × (3 × 2)", "All of the above"],
+        correctIndex: 3,
+        explanation: "Associativity changes grouping and commutativity changes order; all listed are equal to 30."
+      }
+    ];
+
+    // =============== State & DOM ===============
+    const qText = document.getElementById('qText');
+    const answersEl = document.getElementById('answers');
+    const nextBtn = document.getElementById('nextBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const resultEl = document.getElementById('result');
+    const bar = document.getElementById('bar');
+    const counter = document.getElementById('counter');
+    const scoreLabel = document.getElementById('scoreLabel');
+
+    let order = [];            // randomized order of questions
+    let index = 0;             // current question index within 'order'
+    let score = 0;             // correct answers count
+    let wrongs = [];           // {q, chosenIndex} for review
+
+    // =============== Fireworks (canvas) ===============
+    const fwCanvas = document.getElementById('fireworks');
+    const ctx = fwCanvas.getContext('2d');
+    let fwParticles = [];
+    let fwRunning = false;
+
+    function resizeCanvas(){
+      fwCanvas.width = window.innerWidth;
+      fwCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function launchFirework(){
+      const cx = Math.random() * fwCanvas.width * 0.8 + fwCanvas.width*0.1;
+      const cy = Math.random() * fwCanvas.height * 0.5 + fwCanvas.height*0.1;
+      const colors = ['#ffffff', '#ffd166', '#ef476f', '#06d6a0', '#118ab2'];
+
+      const count = 160;
+      for (let i=0;i<count;i++){
+        const angle = (Math.PI*2) * (i/count);
+        const speed = Math.random()*4 + 2;
+        fwParticles.push({
+          x: cx, y: cy,
+          vx: Math.cos(angle)*speed,
+          vy: Math.sin(angle)*speed,
+          alpha: 1,
+          color: colors[(i % colors.length)]
+        });
+      }
+    }
+
+    function stepFireworks(){
+      ctx.clearRect(0,0,fwCanvas.width, fwCanvas.height);
+      fwParticles.forEach(p=>{
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.02; // gravity
+        p.alpha -= 0.008;
+        ctx.globalAlpha = Math.max(p.alpha,0);
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,2,0,Math.PI*2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+      });
+      fwParticles = fwParticles.filter(p=>p.alpha>0);
+      if (fwRunning){
+        // keep launching bursts periodically
+        if (Math.random() < 0.05) launchFirework();
+        requestAnimationFrame(stepFireworks);
+      }
+    }
+
+    function startFireworks(){
+      fwCanvas.style.display = 'block';
+      fwRunning = true;
+      for (let i=0;i<6;i++) launchFirework();
+      stepFireworks();
+    }
+    function stopFireworks(){
+      fwRunning = false;
+      fwParticles = [];
+      ctx.clearRect(0,0,fwCanvas.width, fwCanvas.height);
+      fwCanvas.style.display = 'none';
+    }
+
+    // =============== Quiz Logic ===============
+    function shuffle(a){
+      const arr = a.slice();
+      for (let i=arr.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]] = [arr[j],arr[i]];
+      }
+      return arr;
+    }
+
+    function startQuiz(){
+      stopFireworks();
+      resultEl.innerHTML = '';
+      score = 0;
+      wrongs = [];
+      index = 0;
+      order = shuffle([...Array(QUESTIONS.length).keys()]);
+      nextBtn.classList.remove('d-none');
+      restartBtn.classList.add('d-none');
+      render();
+    }
+
+    function render(){
+      // update meta
+      scoreLabel.textContent = `Score: ${score}`;
+      counter.textContent = `Question ${index+1} of ${QUESTIONS.length}`;
+      bar.style.width = `${(index)/QUESTIONS.length*100}%`;
+
+      // render question
+      const q = QUESTIONS[order[index]];
+      qText.textContent = q.question;
+
+      answersEl.innerHTML = '';
+      q.choices.forEach((c, i)=>{
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-light';
+        btn.textContent = c;
+        btn.onclick = ()=> selectAnswer(i);
+        answersEl.appendChild(btn);
+      });
+      nextBtn.disabled = true;
+    }
+
+    function selectAnswer(chosenIdx){
+      const q = QUESTIONS[order[index]];
+      const buttons = [...answersEl.querySelectorAll('button')];
+
+      // mark styles
+      buttons.forEach((b,i)=>{
+        b.disabled = true;
+        if (i === q.correctIndex) b.classList.add('correct');
+        if (i === chosenIdx && i !== q.correctIndex) b.classList.add('incorrect');
+      });
+
+      if (chosenIdx === q.correctIndex){
+        score++;
+      } else {
+        wrongs.push({ qIndex: order[index], chosenIndex: chosenIdx });
+      }
+      scoreLabel.textContent = `Score: ${score}`;
+      nextBtn.disabled = false;
+    }
+
+    function next(){
+      index++;
+      if (index < QUESTIONS.length) {
+        render();
+      } else {
+        finish();
+      }
+    }
+
+    function finish(){
+      // Fill progress
+      bar.style.width = `100%`;
+      counter.textContent = "Finished";
+
+      // Build summary
+      let html = `<div class="alert alert-primary"><strong>Your score:</strong> ${score} / ${QUESTIONS.length}</div>`;
+
+      if (score === QUESTIONS.length){
+        html += `<div class="alert alert-success mb-2">🎉 Perfect! Amazing job on Commutative and Associative properties!</div>`;
+        startFireworks();
+      } else if (wrongs.length === 0){
+        html += `<div class="alert alert-success mb-2">Great work!</div>`;
+      } else {
+        html += `<div class="alert alert-warning">Let’s review the ones you missed. See the explanation for how to solve each:</div>`;
+        html += `<ol class="explain-list mt-2">`;
+        wrongs.forEach(w=>{
+          const q = QUESTIONS[w.qIndex];
+          const your = q.choices[w.chosenIndex];
+          const correct = q.choices[q.correctIndex];
+          html += `
+            <li class="mb-2">
+              <div><strong>Q:</strong> ${q.question}</div>
+              <div><strong>Your answer:</strong> ${your}</div>
+              <div><strong>Correct answer:</strong> ${correct}</div>
+              <div><strong>How to resolve:</strong> ${q.explanation}</div>
+            </li>
+          `;
+        });
+        html += `</ol>`;
+      }
+
+      resultEl.innerHTML = html;
+      nextBtn.classList.add('d-none');
+      restartBtn.classList.remove('d-none');
+      // Replace current content with a “Play Again” CTA feel
+      qText.textContent = score === QUESTIONS.length
+        ? "Perfect score! Want to try again?"
+        : "Great effort! Ready for another round?";
+      answersEl.innerHTML = '';
+    }
+
+    // =============== Events ===============
+    nextBtn.addEventListener('click', next);
+    restartBtn.addEventListener('click', startQuiz);
+
+    // Init
+    startQuiz();
+  </script>
+</body>
+</html>
